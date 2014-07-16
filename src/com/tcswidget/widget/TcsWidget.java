@@ -4,28 +4,138 @@ import android.appwidget.AppWidgetManager;
 import android.appwidget.AppWidgetProvider;
 import android.content.ComponentName;
 import android.content.Context;
+import android.content.Intent;
+import android.database.Cursor;
+import android.net.Uri;
+import android.os.Bundle;
+import android.provider.Telephony;
+import android.telephony.SmsMessage;
+import android.util.Log;
 import android.widget.RemoteViews;
+import android.widget.TextView;
+import android.widget.Toast;
 import com.tcswidget.R;
+import com.tcswidget.data.DataManager;
 
-import java.text.DateFormat;
-import java.text.SimpleDateFormat;
-import java.util.Date;
-import java.util.Locale;
+import java.util.Arrays;
 
 /**
  * User: antosha
  * Date: 7/4/14
  */
 public class TcsWidget extends AppWidgetProvider {
+    private static final String TAG = TcsWidget.class.getName();
+    public static String SMS_RECEIVED = "android.provider.Telephony.SMS_RECEIVED";
+    private static final String TCS_NAME = "TCS Bank";
+//    private static final String TCS_NAME = "123";
+
+
+    private DataManager dataManager = DataManager.getInstance();
+
+    @Override
+    public void onEnabled(Context context) {
+        Toast.makeText(context, "Widget created", Toast.LENGTH_SHORT).show();
+//        init(context);
+    }
+
     @Override
     public void onUpdate(Context context, AppWidgetManager appWidgetManager, int[] appWidgetIds) {
         RemoteViews remoteViews;
-        ComponentName watchWidget;
-        DateFormat format = SimpleDateFormat.getTimeInstance(SimpleDateFormat.MEDIUM, Locale.getDefault());
+//        ComponentName watchWidget;
 
-        remoteViews = new RemoteViews( context.getPackageName(), R.layout.widget );
-        watchWidget = new ComponentName( context, TcsWidget.class );
-        remoteViews.setTextViewText( R.id.textView1, "Time = " + format.format( new Date()));
-        appWidgetManager.updateAppWidget( watchWidget, remoteViews );
+        remoteViews = new RemoteViews(context.getPackageName(), R.layout.widget);
+//        watchWidget = new ComponentName(context, TcsWidget.class);
+        String balance = dataManager.getBalance("card1");
+        balance = balance == null ? "0" : balance;
+//        remoteViews.setTextViewText(R.id.textView1, balance);
+        //appWidgetManager.updateAppWidget(appWidgetIds, remoteViews);
+    }
+
+    @Override
+    public void onReceive(Context context, Intent intent) {
+        //Toast.makeText(context, "Action: " + intent.getAction(), Toast.LENGTH_LONG).show();
+        //Log.e(TcsWidget.class.getName(), "SUKA!!!!! - " + intent.getAction());
+        //Ловим наш Broadcast, проверяем и выводим сообщение
+        final String action = intent.getAction();
+        String balance = "";
+
+        //Telephony.Sms.Intents.SMS_RECEIVED_ACTION
+        if(SMS_RECEIVED.equals(action)) {
+//            Log.e(TcsWidget.class.getName(), "SMS CAME!");
+            //---get the SMS message passed in---
+            Bundle bundle = intent.getExtras();
+            SmsMessage[] msgs = null;
+            String str = "";
+            if (bundle != null) {
+                //---retrieve the SMS message received---
+                Object[] pdus = (Object[]) bundle.get("pdus");
+                msgs = new SmsMessage[pdus.length];
+                for (int i = 0; i < msgs.length; i++) {
+                    msgs[i] = SmsMessage.createFromPdu((byte[])pdus[i]);
+                    if(TCS_NAME.equalsIgnoreCase(msgs[i].getOriginatingAddress())) {
+                        balance = parseMsg(msgs[i].getMessageBody());
+                    }
+//                    str += "SMS from " + msgs[i].getOriginatingAddress();
+//                    from = msgs[i].getOriginatingAddress();
+//                    str += " :";
+//                    str += msgs[i].getMessageBody();
+//                    str += "\n";
+                }
+
+                Log.e(TAG, "MSG: " + msgs[i].getMessageBody());
+            }
+
+//            dataManager.updateBalance("card1", "new msg");
+
+            AppWidgetManager appWidgetManager = AppWidgetManager.getInstance(context);
+            RemoteViews remoteViews = new RemoteViews(context.getPackageName(), R.layout.widget);
+            int[] appWidgetIds = appWidgetManager.getAppWidgetIds(new ComponentName(context, TcsWidget.class));
+//            Log.e(TAG, "IDs: " + Arrays.toString(appWidgetIds));
+            remoteViews.setTextViewText(R.id.textView1, from);
+            appWidgetManager.updateAppWidget(appWidgetIds, remoteViews);
+            Log.e(TAG, "MSG: kinda update view");
+        }
+        super.onReceive(context, intent);
+    }
+
+    private String parseMsg(String msg) {
+        if(body != null && body.contains("Dostupno")) {
+            int i1 = body.indexOf("Dostupno"), i2 = body.indexOf("RUB", i1);
+            sms = body.substring(i1, i2 + 3);
+        }
+    }
+
+    private void init(Context context) {
+//        TextView view = new TextView(this);
+        Uri uriSMSURI = Uri.parse("content://sms/inbox");
+
+        String selection = "address = '"+ TCS_NAME +"'";
+
+        Cursor cur = context.getContentResolver().query(uriSMSURI, new String[] {"_id", "address", "date", "body", "read"}, selection, null, null);
+        String sms = "NOT FOUND";
+        int i = 0;
+        while(cur != null && cur.moveToNext()) {
+            String body = cur.getString(cur.getColumnIndexOrThrow("body"));
+            if(body != null && body.contains("Dostupno")) {
+                int i1 = body.indexOf("Dostupno"), i2 = body.indexOf("RUB", i1);
+                sms = body.substring(i1, i2 + 3);
+                break;
+            }
+            if(i++ > 20) break;
+//            sms += "From :" + cur.getString(cur.getColumnIndexOrThrow("address")) + " : " + cur.getString(cur.getColumnIndexOrThrow("body")) +"\n";
+        }
+
+        Toast.makeText(context, sms, Toast.LENGTH_LONG).show();
+        setText(context, sms);
+    }
+
+    private void setText(Context context, String balance) {
+        AppWidgetManager appWidgetManager = AppWidgetManager.getInstance(context);
+        RemoteViews remoteViews = new RemoteViews(context.getPackageName(), R.layout.widget);
+        int[] appWidgetIds = appWidgetManager.getAppWidgetIds(new ComponentName(context, TcsWidget.class));
+//            Log.e(TAG, "IDs: " + Arrays.toString(appWidgetIds));
+        remoteViews.setTextViewText(R.id.textView1, balance);
+        appWidgetManager.updateAppWidget(appWidgetIds, remoteViews);
+        Log.e(TAG, "MSG: kinda update view");
     }
 }
