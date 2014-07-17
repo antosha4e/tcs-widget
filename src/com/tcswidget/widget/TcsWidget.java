@@ -29,6 +29,8 @@ public class TcsWidget extends AppWidgetProvider {
     private static final String TCS_NAME = "TCS Bank";
 //    private static final String TCS_NAME = "123";
 
+    //SMS-kod: 2553 Operatsiya: vhod v Internet-bank. Nikomu ne govorite etot kod! www.tcsbank.ru
+
 
     private DataManager dataManager = DataManager.getInstance();
 
@@ -65,44 +67,38 @@ public class TcsWidget extends AppWidgetProvider {
             //---get the SMS message passed in---
             Bundle bundle = intent.getExtras();
             SmsMessage[] msgs = null;
-            String str = "";
+            String msg = "", from = "";
+
             if (bundle != null) {
                 //---retrieve the SMS message received---
                 Object[] pdus = (Object[]) bundle.get("pdus");
                 msgs = new SmsMessage[pdus.length];
                 for (int i = 0; i < msgs.length; i++) {
                     msgs[i] = SmsMessage.createFromPdu((byte[])pdus[i]);
-                    if(TCS_NAME.equalsIgnoreCase(msgs[i].getOriginatingAddress())) {
-                        balance = parseMsg(msgs[i].getMessageBody());
+                    from = msgs[i].getOriginatingAddress();
+                    msg = msgs[i].getMessageBody();
+                    if(TCS_NAME.equalsIgnoreCase(from)) {
+                        balance = parseMsg(msg);
+                        if(balance != null) {
+                            setText(context, balance);
+                        }
                     }
-//                    str += "SMS from " + msgs[i].getOriginatingAddress();
-//                    from = msgs[i].getOriginatingAddress();
-//                    str += " :";
-//                    str += msgs[i].getMessageBody();
-//                    str += "\n";
                 }
 
-                Log.e(TAG, "MSG: " + msgs[i].getMessageBody());
+                Log.e(TAG, "FROM: " + from);
+                Log.e(TAG, "MSG: " + msg);
             }
-
-//            dataManager.updateBalance("card1", "new msg");
-
-            AppWidgetManager appWidgetManager = AppWidgetManager.getInstance(context);
-            RemoteViews remoteViews = new RemoteViews(context.getPackageName(), R.layout.widget);
-            int[] appWidgetIds = appWidgetManager.getAppWidgetIds(new ComponentName(context, TcsWidget.class));
-//            Log.e(TAG, "IDs: " + Arrays.toString(appWidgetIds));
-            remoteViews.setTextViewText(R.id.textView1, from);
-            appWidgetManager.updateAppWidget(appWidgetIds, remoteViews);
-            Log.e(TAG, "MSG: kinda update view");
         }
         super.onReceive(context, intent);
     }
 
     private String parseMsg(String msg) {
-        if(body != null && body.contains("Dostupno")) {
-            int i1 = body.indexOf("Dostupno"), i2 = body.indexOf("RUB", i1);
-            sms = body.substring(i1, i2 + 3);
+        String balance = null;
+        if(msg != null && msg.contains("Dostupno")) {
+            int i1 = msg.indexOf("Dostupno"), i2 = msg.indexOf("RUB", i1);
+            balance = msg.substring(i1, i2 + 3);
         }
+        return balance;
     }
 
     private void init(Context context) {
