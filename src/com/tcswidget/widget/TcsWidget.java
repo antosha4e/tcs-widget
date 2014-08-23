@@ -7,7 +7,9 @@ import android.content.Context;
 import android.content.Intent;
 import android.database.Cursor;
 import android.net.Uri;
+import android.os.Build;
 import android.os.Bundle;
+import android.provider.ContactsContract;
 import android.provider.Telephony;
 import android.telephony.SmsMessage;
 import android.util.Log;
@@ -26,8 +28,10 @@ import java.util.Arrays;
 public class TcsWidget extends AppWidgetProvider {
     private static final String TAG = TcsWidget.class.getName();
     public static String SMS_RECEIVED = "android.provider.Telephony.SMS_RECEIVED";
-    private static final String TCS_NAME = "TCS Bank";
+//    private static final String TCS_NAME = "TCS Bank";
 //    private static final String TCS_NAME = "123";
+    private static final String TCS_NAME = Build.FINGERPRINT.startsWith("generic") ? "123" : "TCS Bank";
+
 
     //SMS-kod: 2553 Operatsiya: vhod v Internet-bank. Nikomu ne govorite etot kod! www.tcsbank.ru
 
@@ -37,7 +41,7 @@ public class TcsWidget extends AppWidgetProvider {
     @Override
     public void onEnabled(Context context) {
         Toast.makeText(context, "Widget created", Toast.LENGTH_SHORT).show();
-//        init(context);
+        init(context);
     }
 
     @Override
@@ -96,7 +100,9 @@ public class TcsWidget extends AppWidgetProvider {
         String balance = null;
         if(msg != null && msg.contains("Dostupno")) {
             int i1 = msg.indexOf("Dostupno"), i2 = msg.indexOf("RUB", i1);
-            balance = msg.substring(i1, i2 + 3);
+            if(i1 > -1 && i2 > -1) {
+                balance = msg.substring(i1 + 8, i2 + 3);
+            }
         }
         return balance;
     }
@@ -107,22 +113,18 @@ public class TcsWidget extends AppWidgetProvider {
 
         String selection = "address = '"+ TCS_NAME +"'";
 
-        Cursor cur = context.getContentResolver().query(uriSMSURI, new String[] {"_id", "address", "date", "body", "read"}, selection, null, null);
-        String sms = "NOT FOUND";
+        Cursor cur = context.getContentResolver().query(uriSMSURI, new String[] {"_id", "address", "date", "body", "read"}, selection, null, "date desc limit 100");
+        String sms = "";
         int i = 0;
         while(cur != null && cur.moveToNext()) {
             String body = cur.getString(cur.getColumnIndexOrThrow("body"));
-            if(body != null && body.contains("Dostupno")) {
-                int i1 = body.indexOf("Dostupno"), i2 = body.indexOf("RUB", i1);
-                sms = body.substring(i1, i2 + 3);
+            Log.e(TAG, "BODY: " + body);
+            body = parseMsg(body);
+            if(body != null) {
+                setText(context, body);
                 break;
             }
-            if(i++ > 20) break;
-//            sms += "From :" + cur.getString(cur.getColumnIndexOrThrow("address")) + " : " + cur.getString(cur.getColumnIndexOrThrow("body")) +"\n";
         }
-
-        Toast.makeText(context, sms, Toast.LENGTH_LONG).show();
-        setText(context, sms);
     }
 
     private void setText(Context context, String balance) {
