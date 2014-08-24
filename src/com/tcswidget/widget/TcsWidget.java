@@ -5,6 +5,7 @@ import android.appwidget.AppWidgetProvider;
 import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
+import android.content.SharedPreferences;
 import android.database.Cursor;
 import android.net.Uri;
 import android.os.Build;
@@ -31,6 +32,7 @@ public class TcsWidget extends AppWidgetProvider {
 //    private static final String TCS_NAME = "TCS Bank";
 //    private static final String TCS_NAME = "123";
     private static final String TCS_NAME = Build.FINGERPRINT.startsWith("generic") ? "123" : "TCS Bank";
+    private static final String PREFS_NAME = "TCS_WIDGET_PREFS";
 
 
     //SMS-kod: 2553 Operatsiya: vhod v Internet-bank. Nikomu ne govorite etot kod! www.tcsbank.ru
@@ -40,21 +42,21 @@ public class TcsWidget extends AppWidgetProvider {
 
     @Override
     public void onEnabled(Context context) {
-        Toast.makeText(context, "Widget created", Toast.LENGTH_SHORT).show();
+        //Toast.makeText(context, "Widget created", Toast.LENGTH_SHORT).show();
         init(context);
     }
 
     @Override
     public void onUpdate(Context context, AppWidgetManager appWidgetManager, int[] appWidgetIds) {
-        RemoteViews remoteViews;
-//        ComponentName watchWidget;
+        //Toast.makeText(context, "Widget updated", Toast.LENGTH_SHORT).show();
 
-        remoteViews = new RemoteViews(context.getPackageName(), R.layout.widget);
-//        watchWidget = new ComponentName(context, TcsWidget.class);
-        String balance = dataManager.getBalance("card1");
-        balance = balance == null ? "0" : balance;
-//        remoteViews.setTextViewText(R.id.textView1, balance);
-        //appWidgetManager.updateAppWidget(appWidgetIds, remoteViews);
+        // Restore preferences
+        SharedPreferences settings = context.getSharedPreferences(PREFS_NAME, 0);
+        String balance = settings.getString("balance", "0");
+
+        if(balance != null) {
+            setText(context, balance);
+        }
     }
 
     @Override
@@ -129,11 +131,21 @@ public class TcsWidget extends AppWidgetProvider {
 
     private void setText(Context context, String balance) {
         AppWidgetManager appWidgetManager = AppWidgetManager.getInstance(context);
-        RemoteViews remoteViews = new RemoteViews(context.getPackageName(), R.layout.widget);
+        RemoteViews remoteViews = new RemoteViews(context.getPackageName(), R.layout.widget_new);
         int[] appWidgetIds = appWidgetManager.getAppWidgetIds(new ComponentName(context, TcsWidget.class));
-//            Log.e(TAG, "IDs: " + Arrays.toString(appWidgetIds));
         remoteViews.setTextViewText(R.id.textView1, balance);
         appWidgetManager.updateAppWidget(appWidgetIds, remoteViews);
-        Log.e(TAG, "MSG: kinda update view");
+        //Log.e(TAG, "MSG: kinda update view");
+
+        saveBalance(context, balance);
+    }
+
+    private void saveBalance(Context context, String balance) {
+        SharedPreferences settings = context.getSharedPreferences(PREFS_NAME, 0);
+        SharedPreferences.Editor editor = settings.edit();
+        editor.putString("balance", balance);
+
+        // Commit the edits!
+        editor.commit();
     }
 }

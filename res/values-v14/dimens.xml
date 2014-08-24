@@ -1,4 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
+    <!-- size = (70 x n) - 30 -->
     <dimen name="widget_margin">0dp</dimen>
+    <dimen name="appwidget_min_width">110dp</dimen>
+    <dimen name="appwidget_min_height">40dp</dimen>
 </resources>
